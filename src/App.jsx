@@ -1,509 +1,246 @@
-import React, { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import './App.css';
 
-// --- DATOS DE LA WIKI (Extraídos del PDF original) ---
-const WIKI_DATA = {
-  characteristics: [
-    { title: "Autoservicio bajo demanda", desc: "El cliente obtiene capacidad sin intervención humana del proveedor.", icon: "⚙️" },
-    { title: "Acceso amplio por red", desc: "Los recursos se alcanzan por la red, desde distintos dispositivos.", icon: "🌐" },
-    { title: "Agrupación de recursos", desc: "La misma infraestructura atiende a muchos clientes a la vez.", icon: "🗄️" },
-    { title: "Elasticidad rápida", desc: "La capacidad crece y se reduce según la demanda.", icon: "📈" },
-    { title: "Servicio medido", desc: "El uso se mide, se controla y se cobra.", icon: "⏱️" }
-  ],
-  serviceModels: [
-    { name: "IaaS", fullName: "Infraestructura como servicio", desc: "El cliente administra el sistema operativo, las aplicaciones y los datos.", examples: "Máquinas virtuales, discos, redes", color: "border-blue-400" },
-    { name: "PaaS", fullName: "Plataforma como servicio", desc: "El cliente despliega su aplicación sin administrar servidores.", examples: "App Service, Azure SQL, Storage", color: "border-indigo-400" },
-    { name: "SaaS", fullName: "Software como servicio", desc: "El cliente usa una aplicación terminada y configura su uso.", examples: "Microsoft 365, Dynamics 365", color: "border-purple-400" }
-  ],
-  responsibilityTable: [
-    { comp: "Datos del cliente", local: "Cliente", iaas: "Cliente", paas: "Cliente", saas: "Cliente" },
-    { comp: "Configuraciones", local: "Cliente", iaas: "Cliente", paas: "Cliente", saas: "Cliente" },
-    { comp: "Identidades y usuarios", local: "Cliente", iaas: "Cliente", paas: "Cliente", saas: "Cliente" },
-    { comp: "Dispositivos cliente", local: "Cliente", iaas: "Cliente", paas: "Cliente", saas: "Compartida" },
-    { comp: "Aplicaciones", local: "Cliente", iaas: "Cliente", paas: "Compartida", saas: "Compartida" },
-    { comp: "Controles de red", local: "Cliente", iaas: "Cliente", paas: "Compartida", saas: "Microsoft" },
-    { comp: "Sistema operativo", local: "Cliente", iaas: "Cliente", paas: "Microsoft", saas: "Microsoft" },
-    { comp: "Hosts físicos", local: "Cliente", iaas: "Microsoft", paas: "Microsoft", saas: "Microsoft" },
-    { comp: "Red física", local: "Cliente", iaas: "Microsoft", paas: "Microsoft", saas: "Microsoft" },
-    { comp: "Centro de datos físico", local: "Cliente", iaas: "Microsoft", paas: "Microsoft", saas: "Microsoft" }
-  ],
-  cases: [
-    { title: "Twitch (Octubre 2021)", error: "Configuración", desc: "Un tercero accedió a código fuente por un cambio en la configuración de un servidor. Responsabilidad del cliente.", icon: "⚠️" },
-    { title: "Capital One (Julio 2019)", error: "Evaluación de Riesgo", desc: "Multa de $80M por no establecer procesos eficaces de evaluación de riesgos antes de migrar datos a la nube.", icon: "🏦" }
-  ]
+const sections = [
+  { id: 'inicio', number: '00', label: 'Resumen', group: 'EMPEZAR' },
+  { id: 'nube', number: '01', label: 'La nube', group: 'FUNDAMENTOS' },
+  { id: 'responsabilidad', number: '02', label: 'Responsabilidad', group: 'FUNDAMENTOS' },
+  { id: 'seguridad', number: '03', label: 'Pilar de seguridad', group: 'DISEÑO SEGURO' },
+  { id: 'laboratorio', number: '04', label: 'Laboratorio Azure', group: 'PRACTICAR' },
+];
+
+const characteristics = [
+  ['01', 'Autoservicio bajo demanda', 'Obtener capacidad sin intervención humana del proveedor.'],
+  ['02', 'Acceso amplio por red', 'Llegar a los recursos desde distintos dispositivos y redes.'],
+  ['03', 'Agrupación de recursos', 'Compartir infraestructura con aislamiento entre clientes.'],
+  ['04', 'Elasticidad rápida', 'Aumentar o reducir capacidad según la demanda.'],
+  ['05', 'Servicio medido', 'Medir, controlar y cobrar el consumo de recursos.'],
+];
+
+const serviceModels = [
+  { id: 'IaaS', title: 'Infraestructura como servicio', desc: 'El cliente administra el sistema operativo, las aplicaciones y los datos.', examples: 'Máquinas virtuales · discos · redes virtuales', tone: 'green' },
+  { id: 'PaaS', title: 'Plataforma como servicio', desc: 'El cliente despliega su aplicación sin administrar los servidores subyacentes.', examples: 'App Service · Azure SQL · Storage', tone: 'orange' },
+  { id: 'SaaS', title: 'Software como servicio', desc: 'El cliente utiliza una aplicación terminada y configura su uso.', examples: 'Microsoft 365 · Dynamics 365', tone: 'rose' },
+];
+
+const deploymentModels = [
+  ['Pública', 'Infraestructura del proveedor disponible para distintos clientes.'],
+  ['Privada', 'Uso exclusivo de una organización, propio o administrado por un tercero.'],
+  ['Comunitaria', 'Compartida por organizaciones con requisitos comunes.'],
+  ['Híbrida', 'Dos o más modelos conectados, con movimiento de datos y aplicaciones.'],
+];
+
+const responsibilityRows = [
+  ['Datos del cliente', 'Cliente', 'Cliente', 'Cliente', 'Cliente'],
+  ['Configuraciones', 'Cliente', 'Cliente', 'Cliente', 'Cliente'],
+  ['Identidades y usuarios', 'Cliente', 'Cliente', 'Cliente', 'Cliente'],
+  ['Dispositivos cliente', 'Cliente', 'Cliente', 'Cliente', 'Compartida'],
+  ['Aplicaciones', 'Cliente', 'Cliente', 'Compartida', 'Compartida'],
+  ['Controles de red', 'Cliente', 'Cliente', 'Compartida', 'Microsoft'],
+  ['Sistema operativo', 'Cliente', 'Cliente', 'Microsoft', 'Microsoft'],
+  ['Hosts físicos', 'Cliente', 'Microsoft', 'Microsoft', 'Microsoft'],
+  ['Red física', 'Cliente', 'Microsoft', 'Microsoft', 'Microsoft'],
+  ['Centro de datos físico', 'Cliente', 'Microsoft', 'Microsoft', 'Microsoft'],
+];
+
+const recommendations = [
+  ['SE:01', 'Establecer una línea base de seguridad'],
+  ['SE:02', 'Integrar el ciclo de desarrollo seguro'],
+  ['SE:03', 'Clasificar y etiquetar los datos'],
+  ['SE:04', 'Segmentar y definir perímetros'],
+  ['SE:05', 'Gestionar identidades y accesos de forma estricta y auditable'],
+  ['SE:06', 'Aislar, filtrar y controlar el tráfico de red'],
+  ['SE:07', 'Cifrar los datos con métodos estándar'],
+  ['SE:08', 'Endurecer los componentes'],
+  ['SE:09', 'Proteger los secretos de las aplicaciones'],
+  ['SE:10', 'Monitorear y detectar amenazas'],
+  ['SE:11', 'Mantener un régimen integral de pruebas de seguridad'],
+  ['SE:12', 'Preparar procedimientos de respuesta a incidentes'],
+];
+const exercisedRecommendations = new Set(['SE:01', 'SE:05', 'SE:06', 'SE:07', 'SE:09', 'SE:10']);
+
+const command = `az login
+az group create -n rg-permisos -l brazilsouth
+az storage account create \\
+  -n stpermisosmuni01 -g rg-permisos \\
+  --sku Standard_LRS --https-only true \\
+  --min-tls-version TLS1_2 \\
+  --allow-blob-public-access false
+az storage account show \\
+  -n stpermisosmuni01 -g rg-permisos -o tsv \\
+  --query "[enableHttpsTrafficOnly, minimumTlsVersion, allowBlobPublicAccess]"`;
+
+const sectionDescriptions = {
+  inicio: ['Unidad 2 · Guía de estudio', 'La nube y quién responde por ella', 'Modelos de servicio, responsabilidad compartida y diseño seguro en Azure.'],
+  nube: ['01 · Fundamentos', 'Qué es la nube', 'Las características y modelos que distinguen la computación en la nube.'],
+  responsabilidad: ['02 · Modelo compartido', 'Quién responde por qué', 'El proveedor protege la infraestructura; la organización conserva decisiones críticas.'],
+  seguridad: ['03 · Azure Well-Architected Framework', 'El pilar de seguridad', 'Principios de diseño y recomendaciones para construir cargas de trabajo seguras.'],
+  laboratorio: ['04 · Trabajo práctico', 'Laboratorio Azure CLI', 'Crear y verificar una cuenta de almacenamiento con una configuración inicial segura.'],
 };
+const sectionSearchCorpus = {
+  inicio: 'responsabilidad nube proveedor cliente Azure seguridad modelos Zero Trust configuración datos identidad',
+  nube: JSON.stringify([characteristics, serviceModels, deploymentModels]),
+  responsabilidad: JSON.stringify(responsibilityRows) + ' Twitch Capital One riesgo configuración identidad cuentas accesos MFA',
+  seguridad: JSON.stringify(recommendations) + ' Zero Trust confidencialidad integridad disponibilidad CIA pilares evaluación auditoría',
+  laboratorio: `${command} Azure for Students TLS almacenamiento HTTPS cifrado blobs acceso red evidencia bitácora`,
+};
+
+function PageHeading({ section }) {
+  const [eyebrow, title, description] = sectionDescriptions[section];
+  return (
+    <header className="page-heading">
+      <p className="eyebrow">{eyebrow}</p>
+      <h1>{title}</h1>
+      <p className="page-description">{description}</p>
+    </header>
+  );
+}
+
+function ResponsibilityBadge({ value }) {
+  return <span className={`responsibility-badge ${value.toLowerCase()}`}>{value}</span>;
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('inicio');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [copied, setCopied] = useState(false);
+  const searchInput = useRef(null);
+
+  useEffect(() => {
+    const handleSearchShortcut = (event) => {
+      const activeElement = document.activeElement;
+      const isTyping = activeElement instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement.tagName);
+      if (event.key === '/' && !isTyping) {
+        event.preventDefault();
+        searchInput.current?.focus();
+      }
+      if (event.key === 'Escape') {
+        setSearch('');
+        searchInput.current?.blur();
+      }
+    };
+
+    window.addEventListener('keydown', handleSearchShortcut);
+    return () => window.removeEventListener('keydown', handleSearchShortcut);
+  }, []);
 
   const changeTab = (tab) => {
     setActiveTab(tab);
-    setIsMobileMenuOpen(false);
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleCopyCode = () => {
-    const code = `az login\naz group create -n rg-permisos -l brazilsouth\naz storage account create -n stpermisosmuni01 -g rg-permisos --sku Standard_LRS --https-only true --min-tls-version TLS1_2 --allow-blob-public-access false\naz storage account show -n stpermisosmuni01 -g rg-permisos -o tsv --query "[enableHttpsTrafficOnly, minimumTlsVersion, allowBlobPublicAccess]"`;
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const visibleSections = sections.filter((section) =>
+    `${section.number} ${section.label} ${section.group} ${sectionSearchCorpus[section.id]}`.toLowerCase().includes(search.toLowerCase()),
+  );
 
-  const getResponsibilityBadge = (type) => {
-    if (type === "Cliente") return <span className="badge badge-cliente">Cliente</span>;
-    if (type === "Compartida") return <span className="badge badge-compartida">Compartida</span>;
-    if (type === "Microsoft") return <span className="badge badge-microsoft">Microsoft</span>;
-    return type;
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
   };
 
   return (
-    <div className="wiki-root">
-      <style>{`
-        /* Anulación de estilos globales de Vite */
-        html, body, #root, .wiki-root {
-          margin: 0 !important;
-          padding: 0 !important;
-          width: 100% !important;
-          max-width: none !important;
-          font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        }
+    <div className="wiki-shell">
+      <aside className="sidebar">
+        <button className="brand" onClick={() => changeTab('inicio')} aria-label="Ir al resumen">
+          <span className="brand-mark">N</span>
+          <span className="brand-copy"><strong>Bitácora cloud</strong><small>GSI · TI3062 · Unidad 2</small></span>
+        </button>
 
-        .wiki-root * {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
-        }
+        <label className="search-box">
+          <span aria-hidden="true">⌕</span>
+          <input ref={searchInput} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar en la wiki" aria-label="Buscar en la wiki" />
+          <kbd>/</kbd>
+        </label>
 
-        /* Variables Profesionales */
-        :root {
-          --bg-sidebar: #0f172a;
-          --bg-sidebar-hover: #1e293b;
-          --text-sidebar: #cbd5e1;
-          --bg-main: #f8fafc;
-          --bg-card: #ffffff;
-          --primary: #0284c7;
-          --text-main: #334155;
-          --text-muted: #64748b;
-          --border-color: #e2e8f0;
-          --danger: #ef4444;
-          --warning: #f59e0b;
-          --success: #10b981;
-        }
-
-        .wiki-layout {
-          display: flex;
-          min-height: 100vh;
-          background-color: var(--bg-main);
-          color: var(--text-main);
-          line-height: 1.6;
-          width: 100%;
-        }
-
-        /* SIDEBAR */
-        .sidebar {
-          width: 280px;
-          background-color: var(--bg-sidebar);
-          color: var(--text-sidebar);
-          display: flex;
-          flex-direction: column;
-          position: fixed;
-          height: 100vh;
-          z-index: 50;
-          box-shadow: 4px 0 15px rgba(0,0,0,0.1);
-        }
-        .sidebar-header {
-          padding: 24px;
-          border-bottom: 1px solid rgba(255,255,255,0.1);
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        }
-        .sidebar-header h1 {
-          font-size: 1.25rem;
-          color: white;
-          font-weight: 700;
-        }
-        .sidebar-nav {
-          padding: 16px 0;
-          flex-grow: 1;
-        }
-        .nav-item {
-          width: 100%;
-          text-align: left;
-          padding: 14px 24px;
-          background: transparent;
-          border: none;
-          color: var(--text-sidebar);
-          font-size: 0.95rem;
-          cursor: pointer;
-          transition: 0.2s;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          border-left: 4px solid transparent;
-        }
-        .nav-item:hover {
-          background-color: var(--bg-sidebar-hover);
-          color: white;
-        }
-        .nav-item.active {
-          background-color: rgba(2, 132, 199, 0.15);
-          color: var(--primary);
-          border-left-color: var(--primary);
-          font-weight: 600;
-        }
-
-        /* CONTENIDO PRINCIPAL */
-        .main-wrapper {
-          margin-left: 280px;
-          width: calc(100% - 280px);
-          display: flex;
-          justify-content: center; /* Centra el contenido en pantallas gigantes */
-          padding: 40px;
-        }
-        
-        .content-container {
-          width: 100%;
-          max-width: 1200px; /* Evita que el contenido se estire al infinito */
-        }
-
-        .page-header {
-          margin-bottom: 35px;
-          padding-bottom: 15px;
-          border-bottom: 2px solid var(--border-color);
-          text-align: center;
-        }
-        .page-header h2 {
-          font-size: 2.4rem;
-          color: var(--bg-sidebar);
-          font-weight: 800;
-        }
-
-        /* TARJETAS Y CAJAS */
-        .card {
-          background: var(--bg-card);
-          border-radius: 12px;
-          padding: 30px;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-          border: 1px solid var(--border-color);
-          margin-bottom: 30px;
-          width: 100%;
-        }
-        .card-title {
-          font-size: 1.4rem;
-          font-weight: 700;
-          color: var(--bg-sidebar);
-          margin-bottom: 20px;
-          text-align: center;
-        }
-
-        .grid-cards {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 20px;
-        }
-        .info-box {
-          background: #f8fafc;
-          border: 1px solid var(--border-color);
-          padding: 24px;
-          border-radius: 8px;
-          text-align: center;
-          transition: 0.2s;
-        }
-        .info-box:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
-        }
-
-        /* TABLA DE RESPONSABILIDAD PROFESIONAL */
-        .table-responsive {
-          width: 100%;
-          overflow-x: auto;
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          background: white;
-          text-align: center;
-        }
-        th, td {
-          padding: 12px 16px;
-          border-bottom: 1px solid var(--border-color);
-          border-right: 1px solid var(--border-color);
-        }
-        th {
-          background-color: #f1f5f9;
-          font-weight: 700;
-          color: var(--bg-sidebar);
-        }
-        td:first-child {
-          text-align: left;
-          font-weight: 600;
-          background-color: #f8fafc;
-        }
-        
-        .badge {
-          padding: 6px 0;
-          border-radius: 4px;
-          font-weight: 600;
-          font-size: 0.9rem;
-          display: block;
-          width: 100%;
-        }
-        .badge-cliente { background-color: #fca5a5; color: #7f1d1d; } /* Rojo claro */
-        .badge-compartida { background-color: #e2e8f0; color: #475569; } /* Gris claro */
-        .badge-microsoft { background-color: #475569; color: #f8fafc; } /* Gris oscuro */
-
-        /* CÓDIGO BASH */
-        .code-container { position: relative; margin: 15px 0; }
-        .code-block {
-          background: #1e293b;
-          color: #e2e8f0;
-          padding: 25px;
-          border-radius: 8px;
-          font-family: 'Courier New', Courier, monospace;
-          text-align: left;
-          overflow-x: auto;
-        }
-        .copy-btn {
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          background: var(--primary);
-          color: white;
-          border: none;
-          padding: 6px 12px;
-          border-radius: 4px;
-          cursor: pointer;
-        }
-
-        @media (max-width: 900px) {
-          .sidebar { display: none; }
-          .main-wrapper { margin-left: 0; width: 100%; padding: 20px; }
-        }
-      `}</style>
-
-      <div className="wiki-layout">
-        
-        {/* BARRA LATERAL */}
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <h1>☁️ GSI - Unidad 2</h1>
-          </div>
-          <nav className="sidebar-nav">
-            <button className={`nav-item ${activeTab === 'inicio' ? 'active' : ''}`} onClick={() => changeTab('inicio')}>
-              <span>🏠</span> Resumen General
-            </button>
-            <button className={`nav-item ${activeTab === 'nube' ? 'active' : ''}`} onClick={() => changeTab('nube')}>
-              <span>☁️</span> 1. ¿Qué es la Nube?
-            </button>
-            <button className={`nav-item ${activeTab === 'responsabilidad' ? 'active' : ''}`} onClick={() => changeTab('responsabilidad')}>
-              <span>⚖️</span> 2. Responsabilidad
-            </button>
-            <button className={`nav-item ${activeTab === 'pilar' ? 'active' : ''}`} onClick={() => changeTab('pilar')}>
-              <span>🛡️</span> 3. Pilar de Seguridad
-            </button>
-            <button className={`nav-item ${activeTab === 'laboratorio' ? 'active' : ''}`} onClick={() => changeTab('laboratorio')}>
-              <span>💻</span> 4. Laboratorio (CLI)
-            </button>
-          </nav>
-        </aside>
-
-        {/* CONTENIDO PRINCIPAL CENTRADO Y LIMITADO EN ANCHO */}
-        <main className="main-wrapper">
-          <div className="content-container">
-            
-            {/* --- SECCIÓN 0: INICIO --- */}
-            {activeTab === 'inicio' && (
-              <div>
-                <div className="page-header">
-                  <h2>La nube y quién responde por ella</h2>
-                  <p>Gestión de Seguridad de la Información (T13062) - Unidad 2</p>
-                </div>
-                
-                <div className="card">
-                  <h3 className="card-title">📖 Acerca de esta Wiki</h3>
-                  <p style={{textAlign: 'center', marginBottom: '30px', fontSize: '1.1rem'}}>
-                    Este documento interactivo consolida el conocimiento sobre la infraestructura Cloud, 
-                    los modelos de responsabilidad compartida y el diseño de arquitecturas seguras utilizando 
-                    el <strong>Well-Architected Framework</strong> de Microsoft Azure.
-                  </p>
-                  
-                  <div className="grid-cards">
-                    <div className="info-box" style={{borderTop: '4px solid var(--primary)'}}>
-                      <h4 style={{color: 'var(--primary)', marginBottom: '10px', fontSize: '1.2rem'}}>Bloque 1: Conceptos</h4>
-                      <p>Cinco características, tres modelos de servicio (IaaS, PaaS, SaaS) y cuatro modelos de despliegue según NIST.</p>
-                    </div>
-                    <div className="info-box" style={{borderTop: '4px solid var(--warning)'}}>
-                      <h4 style={{color: 'var(--warning)', marginBottom: '10px', fontSize: '1.2rem'}}>Bloque 2: Responsabilidad</h4>
-                      <p>El modelo de responsabilidad compartida. Qué gestiona el proveedor y qué controles <strong>nunca</strong> se transfieren.</p>
-                    </div>
-                    <div className="info-box" style={{borderTop: '4px solid var(--success)'}}>
-                      <h4 style={{color: 'var(--success)', marginBottom: '10px', fontSize: '1.2rem'}}>Bloque 3: Seguridad</h4>
-                      <p>Principios de diseño, Zero Trust y la lista de revisión SE:01 a SE:12 aplicada a Azure.</p>
-                    </div>
-                  </div>
-                </div>
+        <nav className="side-nav" aria-label="Secciones de la wiki">
+          {['EMPEZAR', 'FUNDAMENTOS', 'DISEÑO SEGURO', 'PRACTICAR'].map((group) => {
+            const groupSections = visibleSections.filter((section) => section.group === group);
+            if (!groupSections.length) return null;
+            return (
+              <div className="nav-group" key={group}>
+                <p className="nav-group-title">{group}</p>
+                {groupSections.map((section) => (
+                  <button key={section.id} className={`nav-link ${activeTab === section.id ? 'selected' : ''}`} onClick={() => changeTab(section.id)} aria-current={activeTab === section.id ? 'page' : undefined}>
+                    <span className="nav-number">{section.number}</span><span>{section.label}</span>
+                  </button>
+                ))}
               </div>
-            )}
+            );
+          })}
+          {visibleSections.length === 0 && <p className="empty-search">No hay secciones con ese nombre.</p>}
+        </nav>
 
-            {/* --- SECCIÓN 1: NUBE --- */}
-            {activeTab === 'nube' && (
-              <div>
-                <div className="page-header">
-                  <h2>¿Qué es la nube?</h2>
-                  <p>Definiciones fundamentales según NIST SP 800-145</p>
+        <div className="sidebar-note"><span className="status-dot" /> Material de estudio <strong>Bloque 1 de 3</strong></div>
+      </aside>
+
+      <main className="main-area">
+        <div className="topbar"><div className="breadcrumb">GSI <span>/</span> UNIDAD 2 <span>/</span> {sectionDescriptions[activeTab][0].split(' · ')[0]}</div><span className="topbar-tag">INACAP · VALPARAÍSO</span></div>
+        <div className="mobile-nav" aria-label="Navegación móvil">
+          {sections.map((section) => <button key={section.id} className={activeTab === section.id ? 'mobile-active' : ''} onClick={() => changeTab(section.id)}>{section.number} {section.label}</button>)}
+        </div>
+
+        <div className="article-layout">
+          <article className="article-content" key={activeTab}>
+            <PageHeading section={activeTab} />
+
+            {activeTab === 'inicio' && <>
+              <section className="overview-hero">
+                <div className="hero-copy"><p className="hero-kicker">GESTIÓN DE SEGURIDAD DE LA INFORMACIÓN</p><h2>La nube no terceriza la responsabilidad.</h2><p>El proveedor protege la infraestructura. Quién entra, con qué permisos y qué se publica sigue siendo decisión de la organización.</p><button className="primary-button" onClick={() => changeTab('nube')}>Comenzar la guía <span aria-hidden="true">→</span></button></div>
+                <div className="hero-stamp"><span>UNIDAD</span><strong>02</strong><span>TI3062</span></div>
+                <div className="hero-lines" aria-hidden="true" />
+              </section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">RECORRIDO DE APRENDIZAJE</p><h2>Explora la unidad</h2></div><span className="section-count">04 TEMAS</span></div>
+                <div className="topic-list">
+                  {sections.slice(1).map((section, index) => <button className="topic-row" key={section.id} onClick={() => changeTab(section.id)}><span className="topic-index">{section.number}</span><span className="topic-info"><strong>{section.label}</strong><small>{['Características NIST y modelos de servicio y despliegue.', 'Matriz por modelo y responsabilidades que no se transfieren.', 'Zero Trust, principios CIA y lista de revisión SE:01–SE:12.', 'Configuración segura de Storage y evidencia con Azure CLI.'][index]}</small></span><span className="topic-arrow">↗</span></button>)}
                 </div>
+              </section>
+              <aside className="quote-callout"><span className="callout-mark">!</span><div><strong>Idea central</strong><p>“Está en Azure” no significa “Azure lo protege”. Datos, identidades y configuraciones siguen requiriendo decisiones del cliente.</p></div></aside>
+              <section className="section-block reference-strip"><p className="eyebrow">BASADO EN</p><p>NIST SP 800-145 · Microsoft Azure Well-Architected Framework · Modelo de responsabilidad compartida</p><small>Material docente · Rubén Schnettler · INACAP Valparaíso</small></section>
+            </>}
 
-                <div className="card">
-                  <h3 className="card-title">📦 3 Modelos de Servicio</h3>
-                  <p style={{textAlign: 'center', marginBottom: '25px'}}>Mientras más administra el proveedor, menos controles quedan en manos del cliente. Pero los controles sobre <strong>datos e identidades nunca desaparecen</strong>.</p>
-                  
-                  <div className="grid-cards">
-                    {WIKI_DATA.serviceModels.map((model, i) => (
-                      <div key={i} className={`info-box`} style={{borderTop: `4px solid ${model.color.split('-')[2] === 'blue' ? '#3b82f6' : model.color.split('-')[2] === 'indigo' ? '#6366f1' : '#a855f7'}`}}>
-                        <h4 style={{fontSize: '1.2rem', marginBottom: '15px'}}>{model.fullName} ({model.name})</h4>
-                        <p style={{marginBottom: '15px'}}>{model.desc}</p>
-                        <p style={{fontSize: '0.9rem', fontWeight: 'bold'}}>Ejemplos: {model.examples}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            {activeTab === 'nube' && <>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">NIST SP 800-145</p><h2>Cinco características esenciales</h2></div></div><div className="characteristic-list">{characteristics.map(([number, title, desc]) => <div className="characteristic-row" key={number}><span>{number}</span><div><h3>{title}</h3><p>{desc}</p></div></div>)}</div><aside className="quote-callout"><span className="callout-mark">!</span><div><strong>Consecuencia para la seguridad</strong><p>El autoservicio permite que una configuración insegura quede publicada en segundos; la agrupación de recursos exige aislar a cada cliente.</p></div></aside></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">MODELOS DE SERVICIO</p><h2>¿Qué administra el cliente?</h2></div><span className="section-count">IaaS → PaaS → SaaS</span></div><div className="service-grid">{serviceModels.map((model) => <div className={`service-panel ${model.tone}`} key={model.id}><span className="service-code">{model.id}</span><h3>{model.title}</h3><p>{model.desc}</p><small>{model.examples}</small></div>)}</div><p className="inline-note">A medida que el proveedor administra más, disminuye el trabajo operativo del cliente. Los controles sobre datos e identidades nunca desaparecen.</p></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">MODELOS DE DESPLIEGUE</p><h2>Dónde vive la infraestructura</h2></div></div><div className="deployment-grid">{deploymentModels.map(([title, desc], index) => <div className="deployment-item" key={title}><span>0{index + 1}</span><h3>{title}</h3><p>{desc}</p></div>)}</div><aside className="note-band"><strong>En la práctica</strong><p>Una migración gradual suele producir un modelo híbrido. Durante ese período, tanto la nube como la sala de servidores deben protegerse.</p></aside></section>
+              <SourceLine>Fuente: Mell, P. y Grance, T. (2011). The NIST Definition of Cloud Computing (SP 800-145).</SourceLine>
+            </>}
 
-                <div className="card">
-                  <h3 className="card-title">📌 5 Características Esenciales</h3>
-                  <div className="grid-cards">
-                    {WIKI_DATA.characteristics.map((item, i) => (
-                      <div key={i} className="info-box">
-                        <div style={{fontSize: '2.5rem', marginBottom: '10px'}}>{item.icon}</div>
-                        <h4>{item.title}</h4>
-                        <p style={{fontSize: '0.9rem'}}>{item.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            {activeTab === 'responsabilidad' && <>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">MODELO DE RESPONSABILIDAD COMPARTIDA</p><h2>La responsabilidad cambia con el servicio</h2></div></div><p className="section-intro">La tabla muestra quién administra cada componente. En todos los modelos, datos, configuraciones e identidades permanecen bajo responsabilidad del cliente.</p><div className="table-scroll"><table className="responsibility-table"><thead><tr><th>Componente</th><th>Local</th><th>IaaS</th><th>PaaS</th><th>SaaS</th></tr></thead><tbody>{responsibilityRows.map(([component, ...owners]) => <tr key={component}><th scope="row">{component}</th>{owners.map((owner, index) => <td key={`${component}-${index}`}><ResponsibilityBadge value={owner} /></td>)}</tr>)}</tbody></table></div><div className="legend"><span><i className="legend-client" /> Cliente</span><span><i className="legend-shared" /> Compartida</span><span><i className="legend-provider" /> Microsoft</span></div></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">CONTROLES QUE NO SE TRANSFIEREN</p><h2>La organización conserva la decisión</h2></div></div><div className="responsibility-points"><div><span>01</span><h3>Datos</h3><p>Clasificación, protección y decisión de cifrado.</p></div><div><span>02</span><h3>Configuraciones</h3><p>Revisar cada opción que se activa o se deja por defecto.</p></div><div><span>03</span><h3>Cuentas y accesos</h3><p>Administrar usuarios, roles, MFA y políticas de acceso.</p></div></div></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">CASOS REALES</p><h2>Cuando falla la evaluación del cliente</h2></div></div><div className="case-grid"><article className="case-article"><span className="case-date">OCTUBRE DE 2021 · TWITCH</span><h3>Una configuración expuso código fuente</h3><p>Un tercero accedió a documentos del repositorio y a parte de los datos de pagos. Twitch atribuyó el incidente a un cambio de configuración de un servidor.</p><div className="case-takeaway"><strong>Aprendizaje</strong><span>Cada cambio de configuración debe revisarse antes y registrarse después.</span></div></article><article className="case-article"><span className="case-date">JULIO DE 2019 · CAPITAL ONE</span><h3>Migrar sin evaluar riesgos tiene consecuencias</h3><p>El regulador OCC impuso una multa de 80 millones de dólares por no establecer procesos eficaces de evaluación antes de migrar operaciones significativas a la nube.</p><div className="case-takeaway"><strong>Aprendizaje</strong><span>Identificar activos, amenazas y riesgos antes de decidir una migración.</span></div></article></div></section>
+              <SourceLine>Fuentes: Microsoft Learn, Shared responsibility in the cloud · Twitch (2021) · OCC (2020).</SourceLine>
+            </>}
 
-            {/* --- SECCIÓN 2: RESPONSABILIDAD --- */}
-            {activeTab === 'responsabilidad' && (
-              <div>
-                <div className="page-header">
-                  <h2>Quién responde por qué</h2>
-                  <p>El proveedor protege la infraestructura. La configuración, las identidades y los datos siguen siendo del cliente.</p>
-                </div>
+            {activeTab === 'seguridad' && <>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">AZURE WELL-ARCHITECTED FRAMEWORK</p><h2>Seguridad dentro de una arquitectura completa</h2></div></div><div className="pillars-layout"><div className="pillar-lead"><span className="pillar-icon">05</span><h3>Cinco pilares</h3><p>El marco evalúa una carga de trabajo desde cinco perspectivas que deben mantenerse en equilibrio.</p></div><div className="pillar-list"><span>Confiabilidad</span><span className="pillar-highlight">Seguridad</span><span>Optimización de costos</span><span>Excelencia operativa</span><span>Eficiencia del rendimiento</span></div></div></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">ZERO TRUST · CONFIANZA CERO</p><h2>Tres principios para tomar decisiones</h2></div></div><div className="zero-trust-grid"><article><span>01</span><h3>Verificar explícitamente</h3><p>Validar identidad, ubicación y contexto antes de permitir una acción.</p></article><article><span>02</span><h3>Usar mínimo privilegio</h3><p>Otorgar solo los permisos necesarios, durante el tiempo necesario.</p></article><article><span>03</span><h3>Asumir la vulneración</h3><p>Diseñar controles que limiten el daño si una defensa falla.</p></article></div></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">CONFIDENCIALIDAD · INTEGRIDAD · DISPONIBILIDAD</p><h2>Principios de diseño seguro</h2></div></div><div className="cia-list"><div><b>01</b><strong>Preparar</strong><span>Definir prácticas, responsables y respuesta a incidentes desde el diseño.</span></div><div><b>02</b><strong>Confidencialidad</strong><span>Restringir accesos, clasificar datos, cifrar y auditar.</span></div><div><b>03</b><strong>Integridad</strong><span>Impedir modificaciones no autorizadas del diseño, operación y datos.</span></div><div><b>04</b><strong>Disponibilidad</strong><span>Evitar que un incidente detenga o degrade el servicio.</span></div><div><b>05</b><strong>Sostener la postura</strong><span>Mantener inventario, pruebas, detección y aprendizaje continuo.</span></div></div></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">LISTA DE REVISIÓN DEL PILAR</p><h2>Doce recomendaciones de seguridad</h2></div><span className="section-count">SE:01 — SE:12</span></div><div className="recommendation-list">{recommendations.map(([code, text]) => <div className={`recommendation ${exercisedRecommendations.has(code) ? 'practiced' : ''}`} key={code}><code>{code}</code><span>{text}</span>{exercisedRecommendations.has(code) && <small>UNIDAD</small>}</div>)}</div><p className="inline-note">Las recomendaciones destacadas conectan con los pasos de configuración, control de acceso, identidad, auditoría y mejora.</p></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">APLICACIÓN A LA EVALUACIÓN</p><h2>Del criterio a la configuración</h2></div></div><div className="evaluation-list"><div><b>PASO 1</b><span><strong>Configuración inicial</strong><small>SE:06 · SE:07 · Cifrado, HTTPS y red restringida</small></span></div><div><b>PASO 2</b><span><strong>Control de acceso</strong><small>SE:05 · MFA, roles y mínimo privilegio</small></span></div><div><b>PASO 3</b><span><strong>Identidad y permisos</strong><small>SE:05 · SE:09 · Usuarios, grupos y secretos</small></span></div><div><b>PASO 4</b><span><strong>Auditoría</strong><small>SE:10 · Registros y eventos críticos</small></span></div><div><b>PASO 5</b><span><strong>Evaluación y mejora</strong><small>SE:01 · Comparación con la línea base</small></span></div></div></section>
+              <SourceLine>Fuente: Microsoft Azure Well-Architected Framework, Security design principles y design review checklist.</SourceLine>
+            </>}
 
-                <div className="card">
-                  <h3 className="card-title">🛡️ Modelo de Responsabilidad Compartida</h3>
-                  <p style={{textAlign: 'center', marginBottom: '20px'}}>La responsabilidad cambia con el modelo de servicio.</p>
-                  
-                  <div className="table-responsive">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Componente</th>
-                          <th>On-Premises (LOCAL)</th>
-                          <th>IaaS</th>
-                          <th>PaaS</th>
-                          <th>SaaS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {WIKI_DATA.responsibilityTable.map((row, idx) => (
-                          <tr key={idx}>
-                            <td>{row.comp}</td>
-                            <td>{getResponsibilityBadge(row.local)}</td>
-                            <td>{getResponsibilityBadge(row.iaas)}</td>
-                            <td>{getResponsibilityBadge(row.paas)}</td>
-                            <td>{getResponsibilityBadge(row.saas)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+            {activeTab === 'laboratorio' && <>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">PASO 1 · CONFIGURACIÓN INICIAL</p><h2>Almacenamiento con valores seguros</h2></div></div><p className="section-intro">El ejemplo fija tres controles al crear la cuenta: transferencia segura, TLS mínimo y acceso anónimo a blobs deshabilitado.</p><div className="table-scroll"><table className="lab-table"><thead><tr><th>Configuración</th><th>Valor seguro</th><th>WAF</th><th>Protege</th></tr></thead><tbody><tr><th>Transferencia segura requerida</th><td>Activada · HTTPS</td><td>SE:07</td><td>Datos en tránsito</td></tr><tr><th>Versión mínima de TLS</th><td>TLS 1.2</td><td>SE:07</td><td>Protocolos obsoletos</td></tr><tr><th>Acceso anónimo a blobs</th><td>Deshabilitado</td><td>SE:05</td><td>Documentos públicos por error</td></tr><tr><th>Cifrado en reposo</th><td>Activo · claves de Microsoft</td><td>SE:07</td><td>Datos almacenados</td></tr><tr><th>Acceso de red</th><td>Solo direcciones autorizadas</td><td>SE:06</td><td>Exposición a internet</td></tr></tbody></table></div></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">EJECUCIÓN EN CONSOLA</p><h2>Crear y verificar con Azure CLI</h2></div><button className="copy-button" onClick={handleCopyCode}>{copied ? 'Copiado' : 'Copiar comandos'} <span aria-hidden="true">{copied ? '✓' : '⧉'}</span></button></div><div className="terminal"><div className="terminal-bar"><span /><span /><span /><small>AZURE CLI</small></div><pre><code>{command}</code></pre></div><div className="command-notes"><p><b>01</b><span><strong>Autenticación</strong>az login abre el navegador y puede requerir MFA.</span></p><p><b>02</b><span><strong>Organización</strong>El grupo de recursos reúne y ordena los recursos del caso.</span></p><p><b>03</b><span><strong>Evidencia</strong>La consulta final permite comprobar los valores configurados.</span></p></div><div className="expected-output"><span>RESULTADO ESPERADO</span><code>True&nbsp;&nbsp; TLS1_2&nbsp;&nbsp; False</code></div></section>
+              <section className="section-block"><div className="section-title-row"><div><p className="eyebrow">LISTA DE VERIFICACIÓN</p><h2>Entregable de la sesión</h2></div></div><ol className="checklist"><li>Activar la suscripción Azure for Students.</li><li>Crear un grupo de recursos para el caso.</li><li>Crear la cuenta de almacenamiento con los controles indicados.</li><li>Verificar los valores y guardar una captura con el nombre de la cuenta.</li><li>Registrar en la bitácora tres características de seguridad y su propósito.</li></ol><aside className="note-band"><strong>Cuidar el crédito</strong><p>Evitar máquinas virtuales. Al cerrar la evaluación sumativa, eliminar el grupo solo después de conservar la evidencia necesaria.</p></aside></section>
+            </>}
 
-                <div className="grid-cards">
-                  {WIKI_DATA.cases.map((c, i) => (
-                    <div key={i} className="info-box" style={{borderTop: '4px solid var(--danger)'}}>
-                      <h4 style={{display: 'flex', justifyContent: 'center', gap: '8px'}}>{c.icon} Caso: {c.title}</h4>
-                      <p><strong>Falla en:</strong> {c.error}</p>
-                      <p style={{marginTop: '10px'}}>{c.desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* --- SECCIÓN 3: PILAR --- */}
-            {activeTab === 'pilar' && (
-              <div>
-                <div className="page-header">
-                  <h2>El pilar de seguridad</h2>
-                  <p>Diseño de cargas de trabajo seguras según Microsoft (Well-Architected Framework)</p>
-                </div>
-
-                <div className="card">
-                  <h3 className="card-title">✅ Lista de Revisión del Pilar (Selección)</h3>
-                  <div className="table-responsive">
-                    <table style={{textAlign: 'left'}}>
-                      <thead>
-                        <tr>
-                          <th style={{textAlign: 'center'}}>Código</th>
-                          <th>Recomendación (Qué se configura)</th>
-                          <th>Protección</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr><td style={{textAlign: 'center'}}><strong>SE:01</strong></td><td>Establecer una línea base de seguridad.</td><td>Comparación con la base.</td></tr>
-                        <tr><td style={{textAlign: 'center'}}><strong>SE:05</strong></td><td>Gestión de identidades y accesos estricta (MFA).</td><td>Usuarios, evitar accesos anónimos.</td></tr>
-                        <tr><td style={{textAlign: 'center'}}><strong>SE:06</strong></td><td>Aislar, filtrar y controlar el tráfico de red.</td><td>Exposición a internet.</td></tr>
-                        <tr><td style={{textAlign: 'center'}}><strong>SE:07</strong></td><td>Cifrar los datos con métodos estándar (HTTPS, TLS 1.2).</td><td>Datos en tránsito y en reposo.</td></tr>
-                        <tr><td style={{textAlign: 'center'}}><strong>SE:10</strong></td><td>Monitoreo integral y detección (Auditoría).</td><td>Revisión de registros críticos.</td></tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* --- SECCIÓN 4: LABORATORIO --- */}
-            {activeTab === 'laboratorio' && (
-              <div>
-                <div className="page-header">
-                  <h2>Laboratorio Azure CLI</h2>
-                  <p>Configuración inicial segura del almacenamiento</p>
-                </div>
-
-                <div className="card">
-                  <h3 className="card-title">💻 Ejecución en la Consola</h3>
-                  <div className="code-container">
-                    <button className="copy-btn" onClick={handleCopyCode}>
-                      {copied ? '¡Copiado!' : 'Copiar'}
-                    </button>
-                    <div className="code-block">
-                      <span style={{color: '#8b949e'}}># Iniciar sesión (exige MFA)</span><br/>
-                      <span style={{color: '#38bdf8'}}>az login</span><br/><br/>
-                      
-                      <span style={{color: '#8b949e'}}># Crear grupo de recursos</span><br/>
-                      <span style={{color: '#38bdf8'}}>az group create</span> <span style={{color: '#a7f3d0'}}>-n</span> rg-permisos <span style={{color: '#a7f3d0'}}>-l</span> brazilsouth<br/><br/>
-                      
-                      <span style={{color: '#8b949e'}}># Crear cuenta de almacenamiento con seguridad estricta</span><br/>
-                      <span style={{color: '#38bdf8'}}>az storage account create</span> \<br/>
-                      &nbsp;&nbsp;<span style={{color: '#a7f3d0'}}>-n</span> stpermisosmuni01 <span style={{color: '#a7f3d0'}}>-g</span> rg-permisos \<br/>
-                      &nbsp;&nbsp;<span style={{color: '#a7f3d0'}}>--sku</span> Standard_LRS <span style={{color: '#a7f3d0'}}>--https-only</span> true \<br/>
-                      &nbsp;&nbsp;<span style={{color: '#a7f3d0'}}>--min-tls-version</span> TLS1_2 \<br/>
-                      &nbsp;&nbsp;<span style={{color: '#a7f3d0'}}>--allow-blob-public-access</span> false
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
-        </main>
-      </div>
+            <footer className="article-footer"><span>TI3062 · GESTIÓN DE SEGURIDAD DE LA INFORMACIÓN</span><button onClick={() => changeTab('inicio')}>Volver al resumen ↑</button></footer>
+          </article>
+          <aside className="article-aside"><div className="aside-sticky"><p className="eyebrow">EN ESTA UNIDAD</p><button onClick={() => changeTab('nube')}>Características de la nube</button><button onClick={() => changeTab('responsabilidad')}>Modelo compartido</button><button onClick={() => changeTab('seguridad')}>Diseño seguro en Azure</button><button onClick={() => changeTab('laboratorio')}>Laboratorio práctico</button><div className="aside-rule" /><p className="aside-caption">DOCENTE</p><strong>Rubén Schnettler</strong><small>Ingeniería en Informática<br />INACAP Valparaíso</small></div></aside>
+        </div>
+      </main>
     </div>
   );
+}
+
+function SourceLine({ children }) {
+  return <p className="source-line">{children}</p>;
 }
